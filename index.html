@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Chat</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body {
+            background-color: black;
+            color: white;
+            font-family: Arial, sans-serif;
+            text-align: center;
+        }
+        #chat-container {
+            display: none;
+            border: 2px solid red;
+            padding: 10px;
+            width: 300px;
+            margin: 20px auto;
+        }
+        input, button {
+            border: 2px solid red;
+            padding: 5px;
+            margin: 5px;
+            background-color: black;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Secure Chat</h1>
+
+    <div id="password-container">
+        <input type="password" id="password" placeholder="Enter Password">
+        <button onclick="authenticate()">Enter</button>
+    </div>
+
+    <div id="name-container" style="display: none;">
+        <input type="text" id="display-name" placeholder="Enter Display Name">
+        <button onclick="setDisplayName()">Continue</button>
+    </div>
+
+    <div id="chat-container">
+        <div id="messages"></div>
+        <input type="text" id="message" placeholder="Type a message">
+        <button onclick="sendMessage()">Send</button>
+    </div>
+
+    <script>
+        const socket = io();
+
+        function authenticate() {
+            const password = document.getElementById('password').value;
+            socket.emit('authenticate', password, (response) => {
+                if (response.success) {
+                    document.getElementById('password-container').style.display = 'none';
+                    document.getElementById('name-container').style.display = 'block';
+                } else {
+                    alert('Wrong password!');
+                }
+            });
+        }
+
+        function setDisplayName() {
+            const displayName = document.getElementById('display-name').value;
+            if (displayName.trim()) {
+                socket.emit('setDisplayName', displayName);
+                document.getElementById('name-container').style.display = 'none';
+                document.getElementById('chat-container').style.display = 'block';
+            } else {
+                alert('Please enter a valid display name.');
+            }
+        }
+
+        function sendMessage() {
+            const message = document.getElementById('message').value;
+            if (message.trim()) {
+                socket.emit('message', message);
+                document.getElementById('message').value = '';
+            }
+        }
+
+        socket.on('message', (msg) => {
+            const messageDiv = document.createElement('div');
+            messageDiv.textContent = msg;
+            document.getElementById('messages').appendChild(messageDiv);
+        });
+
+        socket.on('previousMessages', (messages) => {
+            messages.forEach((msg) => {
+                const messageDiv = document.createElement('div');
+                messageDiv.textContent = msg;
+                document.getElementById('messages').appendChild(messageDiv);
+            });
+        });
+
+        socket.on("requestAdminCode", () => {
+            const adminCode = prompt("Enter admin code to clear messages:");
+            if (adminCode) {
+                socket.emit("clearMessages", adminCode);
+            }
+        });
+
+        socket.on("requestAdminCodeForBan", (userToBan) => {
+            const adminCode = prompt(`Enter admin code to ban ${userToBan}:`);
+            if (adminCode) {
+                socket.emit("banUser", userToBan, adminCode);
+            }
+        });
+
+        socket.on("adminCodeIncorrect", () => {
+            alert("System: Admin code incorrect, please try again later.");
+        });
+
+        socket.on("clearChat", () => {
+            document.getElementById("messages").innerHTML = "";
+        });
+
+        document.getElementById('password').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') authenticate();
+        });
+
+        document.getElementById('display-name').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') setDisplayName();
+        });
+
+        document.getElementById('message').addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') sendMessage();
+        });
+    </script>
+</body>
+</html>
